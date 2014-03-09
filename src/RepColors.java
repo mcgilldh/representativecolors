@@ -2,12 +2,8 @@ import javafx.scene.layout.Priority;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.geom.Arc2D;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
 
@@ -15,11 +11,13 @@ import java.util.*;
  * Created by petdav on 3/7/2014.
  */
 public class RepColors {
-    HashMap<Color, PriorityQueue<Double>> pixels;
+    HashSet<Color> pixels;
     boolean debug = true;
-    LinkedList<Color> refColors;
+    HashMap<Color, Integer> refColors;
+    double threshold;
 
     public RepColors() {
+        threshold = 10; //The default threshold
     }
 
     /**
@@ -36,7 +34,7 @@ public class RepColors {
                 int red = Integer.parseInt(fields[0]);
                 int green = Integer.parseInt(fields[1]);
                 int blue = Integer.parseInt(fields[2]);
-                refColors.add(new Color(red, green, blue));
+                refColors.put(new Color(red, green, blue), 0);
             }
         }
         catch (IOException er) {
@@ -44,33 +42,36 @@ public class RepColors {
         }
     }
 
-    public void processImage(String filename) {
-        pixels = new HashMap<Color, PriorityQueue<Double>>();
+    public void processImage(String inputFile, String outputFile) {
+        pixels = new HashSet<Color>();
 
         BufferedImage image;
         try {
-            image = ImageIO.read(new File(filename));
+            image = ImageIO.read(new File(inputFile));
 
             //Add the pixels to the HashSet
             for (int x = 0; x < image.getWidth(); x++) {
                 for (int y = 0; y < image.getHeight(); y++) {
-                    pixels.put(new Color(image.getRGB(x, y)), new PriorityQueue<Double>(20, Collections.reverseOrder()));
+                    pixels.add(new Color(image.getRGB(x, y)));
                 }
             }
 
             if (debug) System.out.println("Number of unique pixels: " + pixels.size());
 
             //Pull the pixels out again, and compute the distance
-            Iterator<Color> it = pixels.keySet().iterator();
+            Iterator<Color> it = pixels.iterator();
             while (it.hasNext()) {
                 Color temp = it.next();
-                for (Color ref : refColors) {
-                    //Store the distance in a max heap.
-                    pixels.get(temp).add(colorDistance(temp, ref));
+                for (Color ref : refColors.keySet()) {
+                    if (colorDistance(temp, ref) > threshold) refColors.put(ref, refColors.get(ref) + 1);
                 }
             }
 
-            //Take the
+            //Write the results out to a file
+            BufferedWriter out = new BufferedWriter(new FileWriter(outputFile));
+            for (Color ref : refColors.keySet()) {
+
+            }
         }
         catch (IOException er) {
             er.printStackTrace();
