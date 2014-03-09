@@ -12,13 +12,13 @@ import java.util.*;
  */
 public class RepColors {
     HashSet<Color> pixels;
-    boolean debug = true;
+    boolean debug = false;
     HashMap<Color, Integer> refColors;
     double threshold;
     LinkedList<ColorCount> colors;
 
     public RepColors() {
-        threshold = 10; //The default threshold
+        threshold = 5; //The default threshold
     }
 
     /**
@@ -26,6 +26,7 @@ public class RepColors {
      * @param filename
      */
     public void loadRefColors(String filename) {
+        refColors = new HashMap<Color, Integer>();
         try {
             BufferedReader in = new BufferedReader(new FileReader(filename));
             String line;
@@ -43,7 +44,7 @@ public class RepColors {
         }
     }
 
-    public void processImage(String inputFile, String outputFile) {
+    public void processImage(String inputFile) {
         pixels = new HashSet<Color>();
 
         BufferedImage image;
@@ -64,10 +65,11 @@ public class RepColors {
             while (it.hasNext()) {
                 Color temp = it.next();
                 for (Color ref : refColors.keySet()) {
-                    if (colorDistance(temp, ref) > threshold) refColors.put(ref, refColors.get(ref) + 1);
+                    if (colorDistance(temp, ref) < threshold) refColors.put(ref, refColors.get(ref) + 1);
                 }
             }
 
+            if (debug) System.out.println("Sorting results.");
             //Sort the colors by the most common.
             colors = new LinkedList<ColorCount>();
             for (Color ref : refColors.keySet()) {
@@ -86,11 +88,14 @@ public class RepColors {
      * @param numColors
      */
     public void writeColors(String outFile, int numColors) {
+        if (debug) System.out.println("Writing Results to " + outFile);
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(outFile));
             for (int i = 0; i < numColors; i ++) {
-                Color temp = colors.pop().c;
-                out.write(String.format("%03d, %03d, %03d", temp.getRed(), temp.getGreen(), temp.getBlue()));
+                ColorCount tempcount = colors.pop();
+                Color temp = tempcount.c;
+                if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
+                out.write(String.format("%03d,%03d,%03d\n", temp.getRed(), temp.getGreen(), temp.getBlue()));
             }
             out.close();
             if (debug) System.out.println("Finished.");
@@ -105,7 +110,21 @@ public class RepColors {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
     }
 
+    public static void main(String[] args) {
 
+        if (args.length >= 3) {
+            RepColors col = new RepColors();
+            if (args.length >= 4 && args[3].equals("-d")) col.debug = true;
+            col.loadRefColors(args[0]);
+            col.processImage(args[1]);
+            col.writeColors(args[2], 10);
+
+        }
+        else {
+            System.err.println("usage: RepColors reference_colors.csv image.jpg outfile.txt");
+            System.exit(1);
+        }
+    }
 
 }
 
