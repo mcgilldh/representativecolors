@@ -15,6 +15,7 @@ public class RepColors {
     boolean debug = true;
     HashMap<Color, Integer> refColors;
     double threshold;
+    LinkedList<ColorCount> colors;
 
     public RepColors() {
         threshold = 10; //The default threshold
@@ -67,19 +68,59 @@ public class RepColors {
                 }
             }
 
-            //Write the results out to a file
-            BufferedWriter out = new BufferedWriter(new FileWriter(outputFile));
+            //Sort the colors by the most common.
+            colors = new LinkedList<ColorCount>();
             for (Color ref : refColors.keySet()) {
-
+                colors.add(new ColorCount(refColors.get(ref), ref));
             }
+            Collections.sort(colors, Collections.reverseOrder());
         }
         catch (IOException er) {
             er.printStackTrace();
         }
     }
 
+    /**
+     * Writes numColors of the top colors in this image to outFile.
+     * @param outFile
+     * @param numColors
+     */
+    public void writeColors(String outFile, int numColors) {
+        try {
+            BufferedWriter out = new BufferedWriter(new FileWriter(outFile));
+            for (int i = 0; i < numColors; i ++) {
+                Color temp = colors.pop().c;
+                out.write(String.format("%03d, %03d, %03d", temp.getRed(), temp.getGreen(), temp.getBlue()));
+            }
+            out.close();
+            if (debug) System.out.println("Finished.");
+        }
+        catch(IOException er) {
+            er.printStackTrace();
+        }
+
+    }
+
     public static double colorDistance(Color a, Color b) {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
     }
 
+
+
+}
+
+/**
+ * A simple class for storing color matches in a sort-able way.
+ */
+class ColorCount implements Comparable<ColorCount>{
+    int i;
+    Color c;
+    public ColorCount(int i, Color c) {
+        this.i = i;
+        this.c = c;
+    }
+
+    public int compareTo(ColorCount other) {
+        return i-other.i;
+    }
 }
