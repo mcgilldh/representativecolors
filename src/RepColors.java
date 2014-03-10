@@ -1,5 +1,3 @@
-import javafx.scene.layout.Priority;
-
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -8,7 +6,7 @@ import java.util.*;
 
 
 /**
- * Created by petdav on 3/7/2014.
+ * Processes images and finds representative colors.
  */
 public class RepColors {
     HashSet<Color> pixels;
@@ -23,10 +21,10 @@ public class RepColors {
 
     /**
      * Loads reference colors from a comma separated file, one color per line.
-     * @param filename
+     * @param filename A comma delimited file specifying the reference colors to match to.
      */
     public void loadRefColors(String filename) {
-        refColors = new HashMap<Color, Integer>();
+        refColors = new HashMap<>();
         try {
             BufferedReader in = new BufferedReader(new FileReader(filename));
             String line;
@@ -45,7 +43,7 @@ public class RepColors {
     }
 
     public void processImage(String inputFile) {
-        pixels = new HashSet<Color>();
+        pixels = new HashSet<>();
 
         BufferedImage image;
         try {
@@ -61,9 +59,7 @@ public class RepColors {
             if (debug) System.out.println("Number of unique pixels: " + pixels.size());
 
             //Pull the pixels out again, and compute the distance
-            Iterator<Color> it = pixels.iterator();
-            while (it.hasNext()) {
-                Color temp = it.next();
+            for (Color temp : pixels) {
                 for (Color ref : refColors.keySet()) {
                     if (colorDistance(temp, ref) < threshold) refColors.put(ref, refColors.get(ref) + 1);
                 }
@@ -71,7 +67,7 @@ public class RepColors {
 
             if (debug) System.out.println("Sorting results.");
             //Sort the colors by the most common.
-            colors = new LinkedList<ColorCount>();
+            colors = new LinkedList<>();
             for (Color ref : refColors.keySet()) {
                 colors.add(new ColorCount(refColors.get(ref), ref));
             }
@@ -84,8 +80,8 @@ public class RepColors {
 
     /**
      * Writes numColors of the top colors in this image to outFile.
-     * @param outFile
-     * @param numColors
+     * @param outFile The file to which the most top colors should be written.
+     * @param numColors The number of colors to write
      */
     public void writeColors(String outFile, int numColors) {
         if (debug) System.out.println("Writing Results to " + outFile);
@@ -111,17 +107,43 @@ public class RepColors {
     }
 
     public static void main(String[] args) {
+        RepColors col = new RepColors();
+        String colorRef = "";
+        String imageFile = "";
+        String outFile = "";
+        int numImages = 10;
 
-        if (args.length >= 3) {
-            RepColors col = new RepColors();
-            if (args.length >= 4 && args[3].equals("-d")) col.debug = true;
-            col.loadRefColors(args[0]);
-            col.processImage(args[1]);
-            col.writeColors(args[2], 10);
-
+        for (int i = 0; i < args.length; i++) {
+            switch(args[i]) { //We officially REQUIRE JDK 1.7 or higher now
+                case "-r":
+                    i++;
+                    colorRef = args[i];
+                    break;
+                case "-o":
+                    i++;
+                    outFile = args[i];
+                    break;
+                case "-i":
+                    i++;
+                    imageFile = args[i];
+                    break;
+                case "-n":
+                    i++;
+                    numImages = Integer.parseInt(args[i]);
+                    break;
+                case "-d":
+                    col.debug = true;
+                    break;
+            }
         }
-        else {
-            System.err.println("usage: RepColors reference_colors.csv image.jpg outfile.txt");
+
+        col.loadRefColors(colorRef);
+        col.processImage(imageFile);
+        col.writeColors(outFile, numImages);
+
+        if (colorRef.length() == 0 || imageFile.length() == 0 || outFile.length() == 0) {
+            System.out.println("usage: java RepColors -i image.jpg -r reference_colors.csv -o outfile.csv [-d -n number]");
+            System.out.println("\t-d enables debugging.\n-n number specifies number of images to parse. Default is 10.\nArguments can occur in any order.");
             System.exit(1);
         }
     }
