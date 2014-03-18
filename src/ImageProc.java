@@ -17,7 +17,8 @@ public class ImageProc {
 
     boolean debug;
 
-    public ImageProc(String server, String database, String user, String password, String imageField) {
+    public ImageProc(String server, String database, String user, String password, String imageField, boolean debug) {
+        this.debug = debug;
         connect(server, database, user, password);
         this.imageField = imageField;
     }
@@ -30,6 +31,7 @@ public class ImageProc {
      * @param password
      */
     void connect(String server, String database, String user, String password) {
+        if (debug) System.out.println("Connecting to the database.");
         try {
             Class.forName("com.mysql.jdbc.Driver");
             connect = DriverManager.getConnection("jdbc:mysql://"+server+"/"+database+"?user="+user+"&password="+password);
@@ -49,14 +51,26 @@ public class ImageProc {
      * @param table The table in which the images are stored.
      */
     public void fetchImages(String table) {
+        if (debug) System.out.println("Fetching images.");
         try{
             statement = connect.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM " + table);
+            resultSet.first();
         }
         catch (SQLException er ) {
             System.err.println("[ERROR] Could not issue statements to the database.");
             if (debug) er.printStackTrace();
         }
+    }
+
+    public boolean hasNextImage() {
+        try {
+            return !resultSet.isLast();
+        }
+        catch (SQLException er) {
+            if (debug) er.printStackTrace();
+        }
+        return false;
     }
 
     /**
@@ -66,8 +80,9 @@ public class ImageProc {
     public BufferedImage nextImage() {
         if (resultSet != null) {
             try {
+                resultSet.next();
                 Blob imageBlob = resultSet.getBlob(imageField);
-                return ImageIO.read(imageBlob.getBinaryStream(0, imageBlob.length()));
+                return ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length()));
             }
             catch (SQLException er) {
                 System.err.println("[ERROR] Could not fetch next image from query results. Did you fetch the images first?");
