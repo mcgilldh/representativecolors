@@ -11,45 +11,23 @@ import java.util.*;
  */
 public class RepColors {
     boolean debug = false;
-    HashMap<Color, Integer> refColors;
+    HashMap<ColorItem, Integer> refColors;
     double threshold;
+    ImageItem currentImage;
 
     public RepColors() {
         threshold = 5; //The default threshold
     }
 
-    /**
-     * Loads reference colors from a comma separated file, one color per line.
-     * @param filename A comma delimited file specifying the reference colors to match to.
-     */
-    public void loadRefColors(String filename) {
-        refColors = new HashMap<>();
-        if (debug) System.out.println("Loading reference colors...");
-        try {
-            BufferedReader in = new BufferedReader(new FileReader(filename));
-            String line;
-            String[] fields;
-            while ((line = in.readLine()) != null ) {
-                fields = line.split(",");
-                int red = Integer.parseInt(fields[0]);
-                int green = Integer.parseInt(fields[1]);
-                int blue = Integer.parseInt(fields[2]);
-                refColors.put(new Color(red, green, blue), 0);
-            }
-        }
-        catch (IOException er) {
-            er.printStackTrace();
-        }
-    }
-
-    public LinkedList<ColorCount> processImage(BufferedImage image) {
+    public LinkedList<ColorCount> processImage(ImageItem imageItem) {
         HashSet<Color>  pixels = new HashSet<>();
         LinkedList<ColorCount> colors;
+        currentImage = imageItem;
 
         //Add the pixels to the HashSet
-        for (int x = 0; x < image.getWidth(); x++) {
-            for (int y = 0; y < image.getHeight(); y++) {
-                pixels.add(new Color(image.getRGB(x, y)));
+        for (int x = 0; x < imageItem.image.getWidth(); x++) {
+            for (int y = 0; y < imageItem.image.getHeight(); y++) {
+                pixels.add(new Color(imageItem.image.getRGB(x, y)));
             }
         }
 
@@ -57,15 +35,15 @@ public class RepColors {
 
         //Pull the pixels out again, and compute the distance
         for (Color temp : pixels) {
-            for (Color ref : refColors.keySet()) {
-                if (colorDistance(temp, ref) < threshold) refColors.put(ref, refColors.get(ref) + 1);
+            for (ColorItem ref : refColors.keySet()) {
+                if (colorDistance(temp, ref.color) < threshold) refColors.put(ref, refColors.get(ref) + 1);
             }
         }
 
         if (debug) System.out.println("Sorting results.");
         //Sort the colors by the most common.
         colors = new LinkedList<>();
-        for (Color ref : refColors.keySet()) {
+        for (ColorItem ref : refColors.keySet()) {
             colors.add(new ColorCount(refColors.get(ref), ref));
         }
         Collections.sort(colors, Collections.reverseOrder());
@@ -74,27 +52,17 @@ public class RepColors {
 
     /**
      * Writes numColors of the top colors in this image to outFile.
-     * @param outFile The file to which the most top colors should be written.
      * @param numColors The number of colors to write
      */
-    public void writeColors(String outFile, int numColors, LinkedList<ColorCount> colors) {
-        //TODO: Write out match strength
-        if (debug) System.out.println("Writing Results to " + outFile);
-        try {
-            BufferedWriter out = new BufferedWriter(new FileWriter(outFile));
-            for (int i = 0; i < numColors; i ++) {
-                ColorCount tempcount = colors.pop();
-                Color temp = tempcount.c;
-                if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
-                out.write(String.format("%03d,%03d,%03d\n", temp.getRed(), temp.getGreen(), temp.getBlue()));
-            }
-            out.close();
-            if (debug) System.out.println("Finished.");
-        }
-        catch(IOException er) {
-            er.printStackTrace();
+    public void writeColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors) {
+        for (int i = 0; i < numColors; i ++) {
+            ColorCount tempcount = colors.pop();
+            ColorItem temp = tempcount.c;
+            if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
+            proc.insertColorMatch(currentImage, temp);
         }
 
+        if (debug) System.out.println("Finished.");
     }
 
     public static double colorDistance(Color a, Color b) {
@@ -132,23 +100,19 @@ public class RepColors {
             }
         }
 
-        col.loadRefColors(colorRef);
         //Connect to the database
         ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
+        //Load representative colors from the database.
+        col.refColors = proc.loadRefColors("Color_detail");
         //Pull images from the database
         proc.fetchImages("IMG_detail");
 
         int i = 0;
         while (proc.hasNextImage()) {
-            col.writeColors(String.format("image%d.csv", i), numColors, col.processImage(proc.nextImage()));
+            col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
             i++;
         }
 
-        if (colorRef.length() == 0) {
-            System.out.println("usage: java RepColors -i image.jpg -r reference_colors.csv -o outfile.csv [-d -n number]");
-            System.out.println("\t-d enables debugging.\n-n number specifies number of images to parse. Default is 10.\nArguments can occur in any order.");
-            System.exit(1);
-        }
     }
 
 }
@@ -158,8 +122,8 @@ public class RepColors {
  */
 class ColorCount implements Comparable<ColorCount>{
     int i;
-    Color c;
-    public ColorCount(int i, Color c) {
+    ColorItem c;
+    public ColorCount(int i, ColorItem c) {
         this.i = i;
         this.c = c;
     }

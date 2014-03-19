@@ -3,16 +3,20 @@
  * This is a utility class for loading images and reference colors from the database.
  */
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Date;
+import java.util.HashMap;
 
 public class ImageProc {
     private Connection connect = null;
     private Statement statement = null;
     private PreparedStatement preparedStatement = null;
     private ResultSet resultSet = null;
+    private ResultSet colorSet = null;
+    private Statement insertColorStatement;
     private String imageField;
 
     boolean debug;
@@ -35,6 +39,8 @@ public class ImageProc {
         try {
             Class.forName("com.mysql.jdbc.Driver");
             connect = DriverManager.getConnection("jdbc:mysql://"+server+"/"+database+"?user="+user+"&password="+password);
+            statement = connect.createStatement();
+            insertColorStatement = connect.createStatement();
         }
         catch (ClassNotFoundException er ) {
             System.err.println("[ERROR] Couldn't load mysql jdbc driver. Is it installed?");
@@ -52,15 +58,37 @@ public class ImageProc {
      */
     public void fetchImages(String table) {
         if (debug) System.out.println("Fetching images.");
-        try{
-            statement = connect.createStatement();
-            resultSet = statement.executeQuery("SELECT * FROM " + table);
+        try {
+            resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light'");
             resultSet.first();
         }
         catch (SQLException er ) {
             System.err.println("[ERROR] Could not issue statements to the database.");
             if (debug) er.printStackTrace();
         }
+    }
+
+    public HashMap<ColorItem, Integer> loadRefColors(String table) {
+        try {
+            colorSet = statement.executeQuery("SELECT * FROM " + table);
+            colorSet.first();
+
+            HashMap<ColorItem, Integer> map = new HashMap<>();
+            while (!colorSet.isAfterLast()) {
+                int red = colorSet.getInt("RGB_R");
+                int green = colorSet.getInt("RGB_G");
+                int blue = colorSet.getInt("RGB_B");
+                map.put(new ColorItem(colorSet.getInt("Color_detail_id"), new Color(red, green, blue)), 0);
+                colorSet.next();
+            }
+            if (debug) System.out.println("Loaded " + map.keySet().size() + " colors from the database.");
+            return map;
+        }
+        catch(SQLException er) {
+            System.err.println("[ERROR] Failed to load color table.");
+            if (debug) er.printStackTrace();
+        }
+        return null;
     }
 
     public boolean hasNextImage() {
@@ -77,12 +105,12 @@ public class ImageProc {
      * Returns the next image from the resultSet as a BufferedImage for processing.
      * @return
      */
-    public BufferedImage nextImage() {
+    public ImageItem nextImage() {
         if (resultSet != null) {
             try {
                 resultSet.next();
                 Blob imageBlob = resultSet.getBlob(imageField);
-                return ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length()));
+                return new ImageItem(resultSet.getInt("Textile_img_id"),ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length())));
             }
             catch (SQLException er) {
                 System.err.println("[ERROR] Could not fetch next image from query results. Did you fetch the images first?");
@@ -97,5 +125,35 @@ public class ImageProc {
             System.err.println("[ERROR] Images were not fetched from the database before attempting to fetch the next image.");
         }
         return null;
+    }
+
+    public void insertColorMatch(ImageItem imageItem, ColorItem colorItem) {
+        try {
+            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + imageItem.textile_inst_id + ", NULL, NULL, NULL, NULL, " + colorItem.color_detail_id + ")");
+        }
+        catch (SQLException er) {
+            System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
+            if (debug) er.printStackTrace();
+        }
+    }
+}
+
+class ImageItem {
+    BufferedImage image;
+    int textile_inst_id;
+
+    public ImageItem(int textile_inst_id, BufferedImage image) {
+        this.image = image;
+        this.textile_inst_id = textile_inst_id;
+    }
+}
+
+class ColorItem {
+    Color color;
+    int color_detail_id;
+
+    public ColorItem(int color_detail_id, Color color) {
+        this.color = color;
+        this.color_detail_id = color_detail_id;
     }
 }
