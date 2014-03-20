@@ -7,7 +7,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.sql.*;
-import java.util.Date;
 import java.util.HashMap;
 
 public class ImageProc {
@@ -93,7 +92,7 @@ public class ImageProc {
 
     public boolean hasNextImage() {
         try {
-            return !resultSet.isLast();
+            return !resultSet.isAfterLast();
         }
         catch (SQLException er) {
             if (debug) er.printStackTrace();
@@ -108,9 +107,10 @@ public class ImageProc {
     public ImageItem nextImage() {
         if (resultSet != null) {
             try {
-                resultSet.next();
                 Blob imageBlob = resultSet.getBlob(imageField);
-                return new ImageItem(resultSet.getInt("Textile_img_id"),ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length())));
+                ImageItem retval = new ImageItem(resultSet.getInt("Textile_img_id"),ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length())));
+                resultSet.next();
+                return retval;
             }
             catch (SQLException er) {
                 System.err.println("[ERROR] Could not fetch next image from query results. Did you fetch the images first?");
@@ -129,7 +129,10 @@ public class ImageProc {
 
     public void insertColorMatch(ImageItem imageItem, ColorItem colorItem) {
         try {
-            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + imageItem.textile_inst_id + ", NULL, NULL, NULL, NULL, " + colorItem.color_detail_id + ")");
+            ResultSet temp = insertColorStatement.executeQuery("SELECT Textile_inst_ID FROM VTMaster.IMG_hdr,VTMaster.IMG_detail where Textile_img_id = "+ imageItem.textile_img_id + " and Textile_img_hdr_id = IMG_hdr_id");
+            temp.first();
+            int textile_inst_id = temp.getInt("Textile_inst_id");
+            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + "," + colorItem.color_detail_id + ", 'Active')");
         }
         catch (SQLException er) {
             System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
@@ -140,11 +143,11 @@ public class ImageProc {
 
 class ImageItem {
     BufferedImage image;
-    int textile_inst_id;
+    int textile_img_id;
 
-    public ImageItem(int textile_inst_id, BufferedImage image) {
+    public ImageItem(int textile_img_id, BufferedImage image) {
         this.image = image;
-        this.textile_inst_id = textile_inst_id;
+        this.textile_img_id = textile_img_id;
     }
 }
 
