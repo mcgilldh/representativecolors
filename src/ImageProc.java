@@ -5,6 +5,7 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.sql.*;
 import java.util.HashMap;
@@ -58,7 +59,8 @@ public class ImageProc {
     public void fetchImages(String table) {
         if (debug) System.out.println("Fetching images.");
         try {
-            resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light'");
+            //Where Textile_imd_id > startingImageId
+            resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light' ORDER BY Textile_img_id");
             resultSet.first();
         }
         catch (SQLException er ) {
@@ -101,6 +103,21 @@ public class ImageProc {
     }
 
     /**
+     * Reads a single image from a file and creates an ImageItem.
+     * @return
+     */
+    public static ImageItem readImageFromFile(String filename) {
+        try {
+            BufferedImage image = ImageIO.read(new File(filename));
+            return new ImageItem(filename.substring(0, filename.length()-4), image);
+        }
+        catch(IOException er ) {
+            System.err.println("[ERROR] Unable to read image file.");
+        }
+        return null;
+    }
+
+    /**
      * Returns the next image from the resultSet as a BufferedImage for processing.
      * @return
      */
@@ -138,16 +155,6 @@ public class ImageProc {
             System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
             if (debug) er.printStackTrace();
         }
-    }
-}
-
-class ImageItem {
-    BufferedImage image;
-    int textile_img_id;
-
-    public ImageItem(int textile_img_id, BufferedImage image) {
-        this.image = image;
-        this.textile_img_id = textile_img_id;
     }
 }
 

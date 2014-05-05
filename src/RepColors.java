@@ -16,6 +16,11 @@ public class RepColors {
         threshold = 5; //The default threshold
     }
 
+    /**
+     * Finds all the unique colors in an image, and then returns a LinkedList containing them.
+     * @param imageItem
+     * @return
+     */
     public LinkedList<ColorCount> processImage(ImageItem imageItem) {
         HashSet<Color>  pixels = new HashSet<>();
         LinkedList<ColorCount> colors;
@@ -68,24 +73,16 @@ public class RepColors {
 
     public static void main(String[] args) {
         RepColors col = new RepColors();
-        String colorRef = "";
-        String imageFile = "";
-        String outFile = "";
+        String startingImageID = "";
         int numColors = 10;
+        boolean fileMode = false;
+        String inFile = "";
 
         for (int i = 0; i < args.length; i++) {
             switch(args[i]) { //We officially REQUIRE JDK 1.7 or higher now
-                case "-r":
+                case "-s":
                     i++;
-                    colorRef = args[i];
-                    break;
-                case "-o":
-                    i++;
-                    outFile = args[i];
-                    break;
-                case "-i":
-                    i++;
-                    imageFile = args[i];
+                    startingImageID = args[i];
                     break;
                 case "-n":
                     i++;
@@ -94,20 +91,39 @@ public class RepColors {
                 case "-d":
                     col.debug = true;
                     break;
+                case "-f":
+                    fileMode = true;
+                    i++;
+                    inFile = args[i];
+                    break;
             }
         }
 
-        //Connect to the database
-        ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
-        //Load representative colors from the database.
-        col.refColors = proc.loadRefColors("Color_detail");
-        //Pull images from the database
-        proc.fetchImages("IMG_detail");
+        //If we're processing an individual file, just print this out on the command-line
+        if (fileMode) {
+            ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
+            col.refColors = proc.loadRefColors("Color_detail");
+            LinkedList<ColorCount> colors = col.processImage(ImageProc.readImageFromFile(inFile));
 
-        int i = 0;
-        while (proc.hasNextImage()) {
-            col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
-            i++;
+            for (int i = 0; i < numColors; i++) {
+                ColorCount temp = colors.get(i);
+                Color color = temp.c.color;
+                System.out.println(String.format("Color %d: (%d, %d, %d)\n", i, color.getRed(), color.getBlue(), color.getGreen()));
+            }
+        }
+        else { //Process images in batch and insert them into the database.
+            //Connect to the database
+            ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
+            //Load representative colors from the database.
+            col.refColors = proc.loadRefColors("Color_detail");
+            //Pull images from the database
+            proc.fetchImages("IMG_detail");
+
+            int i = 0;
+            while (proc.hasNextImage()) {
+                col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
+                i++;
+            }
         }
 
     }
