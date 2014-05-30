@@ -81,6 +81,7 @@
                 </constraints>
                 <properties>
                   <enabled value="false"/>
+                  <text value=""/>
                 </properties>
               </component>
               <component id="df2be" class="javax.swing.JRadioButton" binding="SQLScriptRadioButton" default-binding="true">

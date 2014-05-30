@@ -113,12 +113,13 @@ public class ImageProc {
      */
     public ImageItem readImageFromFile(String filename) {
         try {
-            String vtTracking = filename.substring(0, filename.length()-4);
+            File file = new File(filename);
+            String vtTracking = file.getName().substring(0, file.getName().length()-4);
             if (debug) System.out.println("[DEBUG] Reading file " + filename + ".");
             if (debug) System.out.println("[DEBUG] Extracted VT Tracking id: " + vtTracking);
             int Textile_img_id = getTextileImgID(vtTracking);
             if (debug) System.out.println("[DEBUG] Retrieved Textile_image_id=" + Textile_img_id + ".");
-            BufferedImage image = ImageIO.read(new File(filename));
+            BufferedImage image = ImageIO.read(file);
             return new ImageItem(Textile_img_id, image);
         }
         catch(IOException er ) {
@@ -182,12 +183,15 @@ public class ImageProc {
      */
     public int getTextileImgID(String vtTracking) {
         try {
-            ResultSet temp = statement.executeQuery("SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VTTracking='" + vtTracking + "'");
+            String query = "SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VT_tracking=CAST('" + vtTracking + "' as char(30))";
+            if (debug) System.out.println("[DEBUG]" + query);
+            ResultSet temp = statement.executeQuery(query);
             temp.first();
             return temp.getInt("Textile_img_id");
         }
         catch (SQLException er) {
-            System.err.println("[ERROR] Could not locate VTTracking id: "+ vtTracking);
+            System.err.println("[ERROR] Could not locate VT_tracking id: "+ vtTracking);
+            er.printStackTrace();
         }
         return -1;
     }
