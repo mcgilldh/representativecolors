@@ -113,8 +113,13 @@ public class ImageProc {
      */
     public ImageItem readImageFromFile(String filename) {
         try {
+            String vtTracking = filename.substring(0, filename.length()-4);
+            if (debug) System.out.println("[DEBUG] Reading file " + filename + ".");
+            if (debug) System.out.println("[DEBUG] Extracted VT Tracking id: " + vtTracking);
+            int Textile_img_id = getTextileImgID(vtTracking);
+            if (debug) System.out.println("[DEBUG] Retrieved Textile_image_id=" + Textile_img_id + ".");
             BufferedImage image = ImageIO.read(new File(filename));
-            return new ImageItem(getTextileImgID(filename.substring(0, filename.length()-4)), image);
+            return new ImageItem(Textile_img_id, image);
         }
         catch(IOException er ) {
             System.err.println("[ERROR] Unable to read image file.");
@@ -179,7 +184,7 @@ public class ImageProc {
         try {
             ResultSet temp = statement.executeQuery("SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VTTracking='" + vtTracking + "'");
             temp.first();
-            return temp.getInt("Textile_inst_id");
+            return temp.getInt("Textile_img_id");
         }
         catch (SQLException er) {
             System.err.println("[ERROR] Could not locate VTTracking id: "+ vtTracking);
