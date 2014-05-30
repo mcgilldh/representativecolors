@@ -12,11 +12,4 @@ public class ImageItem {
         this.image = image;
         this.textile_img_id = textile_img_id;
     }
-
-    public ImageItem(String vt_tracking, BufferedImage image) {
-        this.image = image;
-        this.vt_tracking = vt_tracking;
-    }
-
-    boolean inDB() { return textile_img_id != -1; }
 }

@@ -1,8 +1,6 @@
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.filechooser.FileFilter;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -25,32 +23,25 @@ public class ColorMain extends JFrame {
     private JSpinner hueSpinner;
     private JSpinner satSpinner;
     private JSpinner valueSpinner;
-    private JTextField singleFileField;
-    private JButton singleFileBrowse;
     private JTextField dumpOutputField;
     private JButton dumpOutputBrowse;
-    private JRadioButton singleFileRadioButton;
+    private JRadioButton databaseRadioButton;
     private JRadioButton directoryRadioButton;
     private JPanel contentPane;
+    private JPanel colorDisplay;
+    private JTextField startVTTracking;
+    private JTextField endVTTracking;
     private JFileChooser chooser;
 
     public ColorMain() {
         setContentPane(contentPane);
-        setSize(contentPane.getPreferredSize());
+        setSize(500,400);
+        setTitle("Representative Color Processing");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         hueSpinner.setValue(hueSlider.getValue());
         satSpinner.setValue(satSlider.getValue());
         valueSpinner.setValue(valueSlider.getValue());
-        singleFileBrowse.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                chooser = new JFileChooser();
-                int retval = chooser.showOpenDialog(null);
-                if (retval == JFileChooser.APPROVE_OPTION) {
-                    singleFileField.setText(chooser.getSelectedFile().getAbsolutePath());
-                }
-            }
-        });
         directoryBrowse.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser = new JFileChooser();
@@ -106,29 +97,56 @@ public class ColorMain extends JFrame {
 
         processButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                LinkedList<File> files = new LinkedList<>();
-                if (singleFileRadioButton.isSelected()) {
-                    files.add(new File(singleFileField.getText()));
+
+                RepColors col = new RepColors();
+                ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", true); //TODO: Set the debugging option with a checkbox
+                col.refColors = proc.loadRefColors("Color_detail");
+                int numColors = 10; //TODO: Create a field in the input and take this value from there.
+
+                if (databaseRadioButton.isSelected()) {
+                    proc.fetchImages("IMG_detail");
+                    int i = 0;
+                    while (proc.hasNextImage()) {
+                        col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
+                        i++;
+                    }
                 }
                 else {
+                    LinkedList<File> files = new LinkedList<>();
                     recurseDirectory(new File(directoryField.getText()), files);
-                }
-                RepColors col = new RepColors();
-                ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
-                col.refColors = proc.loadRefColors("Color_detail");
 
-                //Process all files in the list
-                for (File file : files) {
-                    LinkedList<ColorCount> colors = col.processImage(ImageProc.readImageFromFile(file.getAbsolutePath()));
-
-                    if (directInsertRadioButton.isSelected()) {
-                        col.writeColors(proc, 10, colors);
-                    }
-                    else {
-
-                        System.out.println("[WARN] Not implemented.");
+                    //Process all files in the list
+                    for (File file : files) {
+                        LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(file.getAbsolutePath()));
+                        if (directInsertRadioButton.isSelected()) {
+                            col.writeColors(proc, 10, colors);
+                        }
+                        else {
+                            System.out.println("[WARN] Not implemented.");
+                        }
                     }
                 }
+            }
+        });
+        directoryRadioButton.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                directoryField.setEnabled(directoryRadioButton.isSelected());
+                directoryBrowse.setEnabled(directoryRadioButton.isSelected());
+            }
+        });
+        SQLScriptRadioButton.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                dumpOutputField.setEnabled(SQLScriptRadioButton.isSelected());
+                dumpOutputBrowse.setEnabled(SQLScriptRadioButton.isSelected());
+            }
+        });
+        databaseRadioButton.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                startVTTracking.setEnabled(databaseRadioButton.isSelected());
+                endVTTracking.setEnabled(databaseRadioButton.isSelected());
             }
         });
     }

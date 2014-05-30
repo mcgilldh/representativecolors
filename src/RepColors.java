@@ -67,6 +67,9 @@ public class RepColors {
         if (debug) System.out.println("Finished.");
     }
 
+    /**
+     * Finds the Euclidian distance between two colors
+     */
     public static double colorDistance(Color a, Color b) {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
     }
@@ -103,7 +106,7 @@ public class RepColors {
         if (fileMode) {
             ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
             col.refColors = proc.loadRefColors("Color_detail");
-            LinkedList<ColorCount> colors = col.processImage(ImageProc.readImageFromFile(inFile));
+            LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(inFile));
 
             for (int i = 0; i < numColors; i++) {
                 ColorCount temp = colors.get(i);
@@ -121,7 +124,7 @@ public class RepColors {
 
             int i = 0;
             while (proc.hasNextImage()) {
-                col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
+                //col.writeColors(proc, numColors, col.processImage(proc.nextImage()), );
                 i++;
             }
         }

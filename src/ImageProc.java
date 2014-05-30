@@ -69,6 +69,11 @@ public class ImageProc {
         }
     }
 
+    /**
+     * Loads the reference colors from the specified table.
+     * @param table
+     * @return
+     */
     public HashMap<ColorItem, Integer> loadRefColors(String table) {
         try {
             colorSet = statement.executeQuery("SELECT * FROM " + table);
@@ -106,10 +111,10 @@ public class ImageProc {
      * Reads a single image from a file and creates an ImageItem.
      * @return
      */
-    public static ImageItem readImageFromFile(String filename) {
+    public ImageItem readImageFromFile(String filename) {
         try {
             BufferedImage image = ImageIO.read(new File(filename));
-            return new ImageItem(filename.substring(0, filename.length()-4), image);
+            return new ImageItem(getTextileImgID(filename.substring(0, filename.length()-4)), image);
         }
         catch(IOException er ) {
             System.err.println("[ERROR] Unable to read image file.");
@@ -144,20 +149,48 @@ public class ImageProc {
         return null;
     }
 
+    /**
+     * Inserts a new record into the Textile_color_detail table.
+     * @param imageItem
+     * @param colorItem
+     */
     public void insertColorMatch(ImageItem imageItem, ColorItem colorItem) {
+        insertColorMatch(imageItem.textile_img_id, colorItem);
+    }
+    public void insertColorMatch(int textile_img_id, ColorItem colorItem) {
         try {
-            ResultSet temp = insertColorStatement.executeQuery("SELECT Textile_inst_ID FROM VTMaster.IMG_hdr,VTMaster.IMG_detail where Textile_img_id = "+ imageItem.textile_img_id + " and Textile_img_hdr_id = IMG_hdr_id");
+            ResultSet temp = insertColorStatement.executeQuery("SELECT Textile_inst_ID FROM VTMaster.IMG_hdr,VTMaster.IMG_detail where Textile_img_id = "+ textile_img_id + " and Textile_img_hdr_id = IMG_hdr_id");
             temp.first();
             int textile_inst_id = temp.getInt("Textile_inst_id");
-            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + "," + colorItem.color_detail_id + ", 'Active')");
+            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ")");
         }
         catch (SQLException er) {
             System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
             if (debug) er.printStackTrace();
         }
     }
+
+    /**
+     * Retrieves the Textile_img_id using a VT Tracking id
+     * @param vtTracking
+     * @return
+     */
+    public int getTextileImgID(String vtTracking) {
+        try {
+            ResultSet temp = statement.executeQuery("SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VTTracking='" + vtTracking + "'");
+            temp.first();
+            return temp.getInt("Textile_inst_id");
+        }
+        catch (SQLException er) {
+            System.err.println("[ERROR] Could not locate VTTracking id: "+ vtTracking);
+        }
+        return -1;
+    }
 }
 
+/**
+ * A class representation of an item in the color_detail table
+ */
 class ColorItem {
     Color color;
     int color_detail_id;
