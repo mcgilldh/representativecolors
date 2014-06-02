@@ -107,7 +107,7 @@ public class ColorMain extends JFrame {
                     proc.fetchImages("IMG_detail");
                     int i = 0;
                     while (proc.hasNextImage()) {
-                        col.writeColors(proc, numColors, col.processImage(proc.nextImage()));
+                        col.insertColors(proc, numColors, col.processImage(proc.nextImage()));
                         i++;
                     }
                 }
@@ -119,7 +119,7 @@ public class ColorMain extends JFrame {
                     for (File file : files) {
                         LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(file.getAbsolutePath()));
                         if (directInsertRadioButton.isSelected()) {
-                            col.writeColors(proc, 10, colors);
+                            col.insertColors(proc, 10, colors);
                         }
                         else {
                             System.out.println("[WARN] Not implemented.");

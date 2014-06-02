@@ -5,6 +5,7 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
@@ -69,11 +70,6 @@ public class ImageProc {
         }
     }
 
-    /**
-     * Loads the reference colors from the specified table.
-     * @param table
-     * @return
-     */
     public HashMap<ColorItem, Integer> loadRefColors(String table) {
         try {
             colorSet = statement.executeQuery("SELECT * FROM " + table);
@@ -113,14 +109,8 @@ public class ImageProc {
      */
     public ImageItem readImageFromFile(String filename) {
         try {
-            File file = new File(filename);
-            String vtTracking = file.getName().substring(0, file.getName().length()-4);
-            if (debug) System.out.println("[DEBUG] Reading file " + filename + ".");
-            if (debug) System.out.println("[DEBUG] Extracted VT Tracking id: " + vtTracking);
-            int Textile_img_id = getTextileImgID(vtTracking);
-            if (debug) System.out.println("[DEBUG] Retrieved Textile_image_id=" + Textile_img_id + ".");
-            BufferedImage image = ImageIO.read(file);
-            return new ImageItem(Textile_img_id, image);
+            BufferedImage image = ImageIO.read(new File(filename));
+            return new ImageItem(getTextileImgID(filename.substring(0, filename.length()-4)), image);
         }
         catch(IOException er ) {
             System.err.println("[ERROR] Unable to read image file.");
@@ -155,20 +145,27 @@ public class ImageProc {
         return null;
     }
 
-    /**
-     * Inserts a new record into the Textile_color_detail table.
-     * @param imageItem
-     * @param colorItem
-     */
-    public void insertColorMatch(ImageItem imageItem, ColorItem colorItem) {
-        insertColorMatch(imageItem.textile_img_id, colorItem);
+    public void insertColorMatch(ImageItem imageItem, ColorItem colorItem, BufferedWriter out) {
+        insertColorMatch(imageItem.textile_img_id, colorItem, out);
     }
-    public void insertColorMatch(int textile_img_id, ColorItem colorItem) {
+    public void insertColorMatch(int textile_img_id, ColorItem colorItem, BufferedWriter out) {
         try {
             ResultSet temp = insertColorStatement.executeQuery("SELECT Textile_inst_ID FROM VTMaster.IMG_hdr,VTMaster.IMG_detail where Textile_img_id = "+ textile_img_id + " and Textile_img_hdr_id = IMG_hdr_id");
             temp.first();
             int textile_inst_id = temp.getInt("Textile_inst_id");
-            insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ")");
+
+            if (out == null) {
+                insertColorStatement.execute("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ")");
+            }
+            else {
+                try {
+                    out.write("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ")");
+                }
+                catch (IOException er ) {
+                    System.err.println("[ERROR] Could not write to SQL script file.");
+                    if (debug) er.printStackTrace();
+                }
+            }
         }
         catch (SQLException er) {
             System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
@@ -176,30 +173,19 @@ public class ImageProc {
         }
     }
 
-    /**
-     * Retrieves the Textile_img_id using a VT Tracking id
-     * @param vtTracking
-     * @return
-     */
     public int getTextileImgID(String vtTracking) {
         try {
-            String query = "SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VT_tracking=CAST('" + vtTracking + "' as char(30))";
-            if (debug) System.out.println("[DEBUG]" + query);
-            ResultSet temp = statement.executeQuery(query);
+            ResultSet temp = statement.executeQuery("SELECT Textile_img_id FROM VTMaster.IMG_detail WHERE VTTracking='" + vtTracking + "'");
             temp.first();
-            return temp.getInt("Textile_img_id");
+            return temp.getInt("Textile_inst_id");
         }
         catch (SQLException er) {
-            System.err.println("[ERROR] Could not locate VT_tracking id: "+ vtTracking);
-            er.printStackTrace();
+            System.err.println("[ERROR] Could not locate VTTracking id: "+ vtTracking);
         }
         return -1;
     }
 }
 
-/**
- * A class representation of an item in the color_detail table
- */
 class ColorItem {
     Color color;
     int color_detail_id;

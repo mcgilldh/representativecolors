@@ -1,5 +1,9 @@
 
 import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -56,20 +60,34 @@ public class RepColors {
      * Writes numColors of the top colors in this image to outFile.
      * @param numColors The number of colors to write
      */
-    public void writeColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors) {
+    public void insertColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors) {
         for (int i = 0; i < numColors; i ++) {
             ColorCount tempcount = colors.pop();
             ColorItem temp = tempcount.c;
             if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
-            proc.insertColorMatch(currentImage, temp);
+            proc.insertColorMatch(currentImage, temp, null);
         }
 
         if (debug) System.out.println("Finished.");
     }
 
-    /**
-     * Finds the Euclidian distance between two colors
-     */
+    public void writeColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors, File file) {
+        for (int i = 0; i < numColors; i ++) {
+            ColorCount tempcount = colors.pop();
+            ColorItem temp = tempcount.c;
+            if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
+            try {
+                BufferedWriter out = new BufferedWriter(new FileWriter(file));
+                proc.insertColorMatch(currentImage, temp, out);
+            }
+            catch (IOException er ) {
+                System.err.println("[ERROR] Could not open SQL script file for writing.");
+            }
+        }
+
+        if (debug) System.out.println("Finished.");
+    }
+
     public static double colorDistance(Color a, Color b) {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
     }
@@ -124,7 +142,7 @@ public class RepColors {
 
             int i = 0;
             while (proc.hasNextImage()) {
-                //col.writeColors(proc, numColors, col.processImage(proc.nextImage()), );
+                //col.insertColors(proc, numColors, col.processImage(proc.nextImage()), );
                 i++;
             }
         }
