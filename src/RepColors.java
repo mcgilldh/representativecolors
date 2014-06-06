@@ -25,17 +25,34 @@ public class RepColors {
     /**
      * Finds all the unique colors in an image, and then returns a LinkedList containing them.
      * @param imageItem
+     * @param hOffset the amount to offset the hue for the all of the colors being processed.
+     * @param sOffset the amount to offset the saturation for all the colors being processed.
+     * @param vOffset the amount to offset the value for all the colors being processed.
      * @return
      */
-    public LinkedList<ColorCount> processImage(ImageItem imageItem) {
+    public LinkedList<ColorCount> processImage(ImageItem imageItem, int hOffset, int sOffset, int vOffset) {
         HashSet<Color>  pixels = new HashSet<>();
         LinkedList<ColorCount> colors;
         currentImage = imageItem;
+        Color tmpColor;
+        float h, s, b;
+        float hsb[] = new float[3];
+        int rgb;
+
+        //Add the pixels to the HashSet
 
         //Add the pixels to the HashSet
         for (int x = 0; x < imageItem.image.getWidth(); x++) {
             for (int y = 0; y < imageItem.image.getHeight(); y++) {
-                pixels.add(new Color(imageItem.image.getRGB(x, y)));
+                //Add the offsets, which come from the HSV bars
+                tmpColor = new Color(imageItem.image.getRGB(x, y));
+                hsb = Color.RGBtoHSB(tmpColor.getRed(), tmpColor.getGreen() , tmpColor.getBlue(), null);
+                h = hsb[0] + hOffset;
+                s = hsb[1] + sOffset;
+                b = hsb[2] + vOffset;
+                rgb = Color.HSBtoRGB(h, s, b);
+                tmpColor = new Color(rgb);
+                pixels.add(tmpColor); //Add the new color to the list.
             }
         }
 
@@ -83,7 +100,6 @@ public class RepColors {
     public static double colorDistance(Color a, Color b) {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
     }
-
 }
 
 /**
