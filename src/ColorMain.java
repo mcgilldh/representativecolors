@@ -3,7 +3,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
+import java.io.*;
 import java.util.LinkedList;
 
 /**
@@ -31,9 +31,12 @@ public class ColorMain extends JFrame {
     private JPanel colorDisplay;
     private JTextField startVTTracking;
     private JTextField endVTTracking;
+    private JSpinner numColorsSpinner;
+    private JCheckBox debugOutputCheckBox;
+    private JTextArea outputArea;
     private JFileChooser chooser;
-
-    final static int OFFSET_CONST = 128;
+    private boolean debug;
+    private DebugUtil debugUtil;
 
     public ColorMain() {
         setContentPane(contentPane);
@@ -41,6 +44,9 @@ public class ColorMain extends JFrame {
         setTitle("Representative Color Processing");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        debugUtil = new DebugUtil(outputArea);
+
+        numColorsSpinner.setValue(10);
         hueSpinner.setValue(hueSlider.getValue());
         satSpinner.setValue(satSlider.getValue());
         valueSpinner.setValue(valueSlider.getValue());
@@ -99,24 +105,22 @@ public class ColorMain extends JFrame {
 
         processButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                debug = debugOutputCheckBox.isSelected();
+                RepColors col = new RepColors(debugUtil);
+                col.debug = debug;
+                ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", debug, debugUtil);
 
-                RepColors col = new RepColors();
-                ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", true); //TODO: Set the debugging option with a checkbox
                 col.refColors = proc.loadRefColors("Color_detail");
-                int numColors = 10; //TODO: Create a field in the input and take this value from there.
+                int numColors = (int)numColorsSpinner.getValue();
 
-                int hOffset, sOffset, vOffset;
-                hOffset = hueSlider.getValue()-OFFSET_CONST;
-                sOffset = satSlider.getValue()-OFFSET_CONST;
-                vOffset = valueSlider.getValue()-OFFSET_CONST;
-
+                //Fetch images from database or directory
+                LinkedList<ImageItem> images = new LinkedList<>();
                 if (databaseRadioButton.isSelected()) {
-                    proc.fetchImages("IMG_detail");
-                    int i = 0;
-
+                    String startID = startVTTracking.getText().trim().toUpperCase();
+                    String endID = endVTTracking.getText().trim().toUpperCase();
+                    proc.fetchImages("IMG_detail", startID, endID);
                     while (proc.hasNextImage()) {
-                        col.insertColors(proc, numColors, col.processImage(proc.nextImage(), hOffset, sOffset, vOffset));
-                        i++;
+                        images.add(proc.nextImage());
                     }
                 }
                 else {
@@ -125,15 +129,56 @@ public class ColorMain extends JFrame {
 
                     //Process all files in the list
                     for (File file : files) {
-                        LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(file.getAbsolutePath()), hOffset, sOffset, vOffset);
-                        if (directInsertRadioButton.isSelected()) {
-                            col.insertColors(proc, 10, colors);
-                        }
-                        else {
-                            System.out.println("[WARN] Not implemented.");
-                        }
+                        images.add(proc.readImageFromFile(file.getAbsolutePath()));
                     }
                 }
+
+                //Process images and insert into database or write to file
+                if (!directInsertRadioButton.isSelected()) {
+                    try {
+                        BufferedWriter out = new BufferedWriter(new FileWriter(dumpOutputField.getText()));
+                        //Insert the files or create the dump
+                        for (ImageItem imageItem : images) {
+                            debugUtil.debug("Processing image " + imageItem.vt_tracking, debug);
+                            LinkedList<ColorCount> colors = col.processImage(imageItem);
+                            if (debug) {
+                                String colorString = "\t";
+                                int i = 0;
+                                for (ColorCount colorCount: colors) {
+                                    colorString += "\t" + colorCount.toString() + "\n";
+                                    i++;
+                                    if (i > numColors) break;
+                                }
+                                debugUtil.debug("Found colors:\n" + colorString, debug);
+                            }
+                            col.writeColors(proc, numColors, colors, out);
+                        }
+                        out.close();
+                    }
+                    catch (IOException er ) {
+                        debugUtil.error("Could not open SQL script file for writing.");
+                        if (debug) er.printStackTrace();
+                    }
+                }
+                else {
+                    for (ImageItem imageItem : images) {
+                        debugUtil.debug("Processing image " + imageItem.vt_tracking, debug);
+                        LinkedList<ColorCount> colors = col.processImage(imageItem);
+                        if (debug) {
+                            String colorString = "\t";
+                            int i = 0;
+                            for (ColorCount colorCount: colors) {
+                                colorString += "\t" + colorCount.toString() + "\n";
+                                i++;
+                                if (i > numColors) break;
+                            }
+                            debugUtil.debug("Found colors:\n" + colorString, debug);
+                        }
+                        col.insertColors(proc, numColors, colors);
+                    }
+                }
+
+                JOptionPane.showMessageDialog(null, "Processing complete");
             }
         });
         directoryRadioButton.addChangeListener(new ChangeListener() {
@@ -162,12 +207,12 @@ public class ColorMain extends JFrame {
     private void recurseDirectory(File path, LinkedList<File> list) {
         if (!path.isDirectory()) {
             list.add(path);
-            System.out.println("[DEBUG] Adding file: " + path.getAbsolutePath());
+            debugUtil.debug("Adding file: " + path.getAbsolutePath(), debug);
         }
         else {
             File[] subFiles = path.listFiles();
             for (File file : subFiles) {
-                System.out.println("[DEBUG] Descending into directory: " + file.getAbsolutePath());
+                debugUtil.debug("Descending into directory: " + file.getAbsolutePath(), debug);
                 recurseDirectory(file, list);
             }
         }
