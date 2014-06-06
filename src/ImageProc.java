@@ -19,11 +19,13 @@ public class ImageProc {
     private ResultSet colorSet = null;
     private Statement insertColorStatement;
     private String imageField;
+    DebugUtil debugUtil;
 
     boolean debug;
 
-    public ImageProc(String server, String database, String user, String password, String imageField, boolean debug) {
+    public ImageProc(String server, String database, String user, String password, String imageField, boolean debug, DebugUtil debugUtil) {
         this.debug = debug;
+        this.debugUtil = debugUtil;
         connect(server, database, user, password);
         this.imageField = imageField;
     }
@@ -36,7 +38,7 @@ public class ImageProc {
      * @param password
      */
     void connect(String server, String database, String user, String password) {
-        if (debug) System.out.println("Connecting to the database.");
+        debugUtil.debug("Connecting to the database.", debug);
         try {
             Class.forName("com.mysql.jdbc.Driver");
             connect = DriverManager.getConnection("jdbc:mysql://"+server+"/"+database+"?user="+user+"&password="+password);
@@ -44,12 +46,10 @@ public class ImageProc {
             insertColorStatement = connect.createStatement();
         }
         catch (ClassNotFoundException er ) {
-            System.err.println("[ERROR] Couldn't load mysql jdbc driver. Is it installed?");
-            if (debug) er.printStackTrace();
+            debugUtil.error("Couldn't load mysql jdbc driver. Is it installed?", debug, er);
         }
         catch(SQLException er) {
-            System.err.println("[ERROR] Could not connect to database " + database);
-            if (debug) er.printStackTrace();
+            debugUtil.error("Could not connect to database " + database, debug, er);
         }
     }
 
@@ -57,16 +57,19 @@ public class ImageProc {
      * Launches the query to fetch all images from the database.
      * @param table The table in which the images are stored.
      */
-    public void fetchImages(String table) {
-        if (debug) System.out.println("Fetching images.");
+    public void fetchImages(String table, String startID, String endID) {
+        debugUtil.debug("Fetching images.", debug);
         try {
             //Where Textile_imd_id > startingImageId
-            resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light' ORDER BY Textile_img_id");
+            if (startID.length() == 0 || endID.length() == 0)
+                resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light' ORDER BY Textile_img_id");
+            else
+                resultSet = statement.executeQuery("SELECT * FROM " + table + " WHERE Img_type_cd='Full Light' " +
+                        "AND VT_tracking BETWEEN CAST('"+startID+"' as char(30)) AND CAST('"+endID+"' as char(30)) ORDER BY Textile_img_id");
             resultSet.first();
         }
         catch (SQLException er ) {
-            System.err.println("[ERROR] Could not issue statements to the database.");
-            if (debug) er.printStackTrace();
+            debugUtil.error("Could not issue statements to the database.", debug, er);
         }
     }
 
@@ -83,12 +86,11 @@ public class ImageProc {
                 map.put(new ColorItem(colorSet.getInt("Color_detail_id"), new Color(red, green, blue)), 0);
                 colorSet.next();
             }
-            if (debug) System.out.println("Loaded " + map.keySet().size() + " colors from the database.");
+            debugUtil.debug("Loaded " + map.keySet().size() + " colors from the database.", debug);
             return map;
         }
         catch(SQLException er) {
-            System.err.println("[ERROR] Failed to load color table.");
-            if (debug) er.printStackTrace();
+            debugUtil.error("Failed to load color table.", debug, er);
         }
         return null;
     }
@@ -110,10 +112,11 @@ public class ImageProc {
     public ImageItem readImageFromFile(String filename) {
         try {
             BufferedImage image = ImageIO.read(new File(filename));
-            return new ImageItem(getTextileImgID(filename.substring(0, filename.length()-4)), image);
+            String tracking = filename.substring(0,filename.indexOf("."));
+            return new ImageItem(getTextileImgID(tracking), tracking, image);
         }
         catch(IOException er ) {
-            System.err.println("[ERROR] Unable to read image file.");
+            debugUtil.error("Unable to read image file.", debug, er);
         }
         return null;
     }
@@ -126,21 +129,19 @@ public class ImageProc {
         if (resultSet != null) {
             try {
                 Blob imageBlob = resultSet.getBlob(imageField);
-                ImageItem retval = new ImageItem(resultSet.getInt("Textile_img_id"),ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length())));
+                ImageItem retval = new ImageItem(resultSet.getInt("Textile_img_id"),resultSet.getString("VT_tracking"),ImageIO.read(imageBlob.getBinaryStream(1, imageBlob.length())));
                 resultSet.next();
                 return retval;
             }
             catch (SQLException er) {
-                System.err.println("[ERROR] Could not fetch next image from query results. Did you fetch the images first?");
-                if (debug) er.printStackTrace();
+                debugUtil.error("Could not fetch next image from query results. Did you fetch the images first?", debug, er);
             }
             catch(IOException er) {
-                System.err.println("[ERROR] Could not read image blob. Did you select the right field?");
-                if (debug) er.printStackTrace();
+                debugUtil.error("Could not read image blob. Did you select the right field?", debug, er);
             }
         }
         else {
-            System.err.println("[ERROR] Images were not fetched from the database before attempting to fetch the next image.");
+            debugUtil.error("Images were not fetched from the database before attempting to fetch the next image. Please contact developer.");
         }
         return null;
     }
@@ -159,17 +160,15 @@ public class ImageProc {
             }
             else {
                 try {
-                    out.write("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ")");
+                    out.write("INSERT INTO Textile_color_detail VALUES (" + textile_inst_id + ",NULL, NULL, NULL, NULL," + colorItem.color_detail_id + ");\n");
                 }
                 catch (IOException er ) {
-                    System.err.println("[ERROR] Could not write to SQL script file.");
-                    if (debug) er.printStackTrace();
+                    debugUtil.error("Could not write to SQL script file.", debug, er);
                 }
             }
         }
         catch (SQLException er) {
-            System.err.println("[ERROR] Failed to insert color values into Textile Color Detail table.");
-            if (debug) er.printStackTrace();
+            debugUtil.error("Failed to insert color values into Textile Color Detail table.", debug, er);
         }
     }
 
@@ -180,7 +179,7 @@ public class ImageProc {
             return temp.getInt("Textile_inst_id");
         }
         catch (SQLException er) {
-            System.err.println("[ERROR] Could not locate VTTracking id: "+ vtTracking);
+            debugUtil.error("Could not locate VTTracking id: "+ vtTracking, debug, er);
         }
         return -1;
     }
@@ -193,5 +192,9 @@ class ColorItem {
     public ColorItem(int color_detail_id, Color color) {
         this.color = color;
         this.color_detail_id = color_detail_id;
+    }
+
+    public String toString() {
+        return "(" + color.getRed() + "," + color.getGreen() + "," + color.getBlue() + ")";
     }
 }

@@ -15,9 +15,11 @@ public class RepColors {
     HashMap<ColorItem, Integer> refColors;
     double threshold;
     ImageItem currentImage;
+    DebugUtil debugUtil;
 
-    public RepColors() {
+    public RepColors(DebugUtil debugUtil) {
         threshold = 5; //The default threshold
+        this.debugUtil = debugUtil;
     }
 
     /**
@@ -37,7 +39,7 @@ public class RepColors {
             }
         }
 
-        if (debug) System.out.println("Number of unique pixels: " + pixels.size());
+        debugUtil.debug("Number of unique pixels: " + pixels.size(), debug);
 
         //Pull the pixels out again, and compute the distance
         for (Color temp : pixels) {
@@ -46,7 +48,7 @@ public class RepColors {
             }
         }
 
-        if (debug) System.out.println("Sorting results.");
+        debugUtil.debug("Sorting results.", debug);
         //Sort the colors by the most common.
         colors = new LinkedList<>();
         for (ColorItem ref : refColors.keySet()) {
@@ -64,89 +66,22 @@ public class RepColors {
         for (int i = 0; i < numColors; i ++) {
             ColorCount tempcount = colors.pop();
             ColorItem temp = tempcount.c;
-            if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
+            debugUtil.debug("Color " + i + " has score " + tempcount.i, debug);
             proc.insertColorMatch(currentImage, temp, null);
         }
-
-        if (debug) System.out.println("Finished.");
     }
 
-    public void writeColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors, File file) {
+    public void writeColors(ImageProc proc, int numColors, LinkedList<ColorCount> colors, BufferedWriter out) {
         for (int i = 0; i < numColors; i ++) {
             ColorCount tempcount = colors.pop();
             ColorItem temp = tempcount.c;
-            if (debug) System.out.println("Color " + i + " has score " + tempcount.i);
-            try {
-                BufferedWriter out = new BufferedWriter(new FileWriter(file));
-                proc.insertColorMatch(currentImage, temp, out);
-            }
-            catch (IOException er ) {
-                System.err.println("[ERROR] Could not open SQL script file for writing.");
-            }
+            debugUtil.debug("Color " + i + " has score " + tempcount.i, debug);
+            proc.insertColorMatch(currentImage, temp, out);
         }
-
-        if (debug) System.out.println("Finished.");
     }
 
     public static double colorDistance(Color a, Color b) {
         return Math.sqrt(Math.pow(a.getRed()-b.getRed(), 2) + Math.pow(a.getGreen()-b.getGreen(), 2) + Math.pow(a.getBlue()-b.getBlue(),2));
-    }
-
-    public static void main(String[] args) {
-        RepColors col = new RepColors();
-        String startingImageID = "";
-        int numColors = 10;
-        boolean fileMode = false;
-        String inFile = "";
-
-        for (int i = 0; i < args.length; i++) {
-            switch(args[i]) { //We officially REQUIRE JDK 1.7 or higher now
-                case "-s":
-                    i++;
-                    startingImageID = args[i];
-                    break;
-                case "-n":
-                    i++;
-                    numColors = Integer.parseInt(args[i]);
-                    break;
-                case "-d":
-                    col.debug = true;
-                    break;
-                case "-f":
-                    fileMode = true;
-                    i++;
-                    inFile = args[i];
-                    break;
-            }
-        }
-
-        //If we're processing an individual file, just print this out on the command-line
-        if (fileMode) {
-            ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
-            col.refColors = proc.loadRefColors("Color_detail");
-            LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(inFile));
-
-            for (int i = 0; i < numColors; i++) {
-                ColorCount temp = colors.get(i);
-                Color color = temp.c.color;
-                System.out.println(String.format("Color %d: (%d, %d, %d)\n", i, color.getRed(), color.getBlue(), color.getGreen()));
-            }
-        }
-        else { //Process images in batch and insert them into the database.
-            //Connect to the database
-            ImageProc proc = new ImageProc("localhost", "VTMaster", "testuser", "test", "Textile_img", col.debug);
-            //Load representative colors from the database.
-            col.refColors = proc.loadRefColors("Color_detail");
-            //Pull images from the database
-            proc.fetchImages("IMG_detail");
-
-            int i = 0;
-            while (proc.hasNextImage()) {
-                //col.insertColors(proc, numColors, col.processImage(proc.nextImage()), );
-                i++;
-            }
-        }
-
     }
 
 }
@@ -164,5 +99,9 @@ class ColorCount implements Comparable<ColorCount>{
 
     public int compareTo(ColorCount other) {
         return i-other.i;
+    }
+
+    public String toString() {
+        return c.toString();
     }
 }
