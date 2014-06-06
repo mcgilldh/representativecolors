@@ -33,6 +33,8 @@ public class ColorMain extends JFrame {
     private JTextField endVTTracking;
     private JFileChooser chooser;
 
+    final static int OFFSET_CONST = 128;
+
     public ColorMain() {
         setContentPane(contentPane);
         setSize(500,400);
@@ -103,11 +105,17 @@ public class ColorMain extends JFrame {
                 col.refColors = proc.loadRefColors("Color_detail");
                 int numColors = 10; //TODO: Create a field in the input and take this value from there.
 
+                int hOffset, sOffset, vOffset;
+                hOffset = hueSlider.getValue()-OFFSET_CONST;
+                sOffset = satSlider.getValue()-OFFSET_CONST;
+                vOffset = valueSlider.getValue()-OFFSET_CONST;
+
                 if (databaseRadioButton.isSelected()) {
                     proc.fetchImages("IMG_detail");
                     int i = 0;
+
                     while (proc.hasNextImage()) {
-                        col.insertColors(proc, numColors, col.processImage(proc.nextImage()));
+                        col.insertColors(proc, numColors, col.processImage(proc.nextImage(), hOffset, sOffset, vOffset));
                         i++;
                     }
                 }
@@ -117,7 +125,7 @@ public class ColorMain extends JFrame {
 
                     //Process all files in the list
                     for (File file : files) {
-                        LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(file.getAbsolutePath()));
+                        LinkedList<ColorCount> colors = col.processImage(proc.readImageFromFile(file.getAbsolutePath()), hOffset, sOffset, vOffset);
                         if (directInsertRadioButton.isSelected()) {
                             col.insertColors(proc, 10, colors);
                         }
