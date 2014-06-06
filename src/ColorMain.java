@@ -47,6 +47,15 @@ public class ColorMain extends JFrame {
         debugUtil = new DebugUtil(outputArea);
 
         numColorsSpinner.setValue(10);
+        hueSlider.setValue(0);
+        satSlider.setValue(0);
+        valueSlider.setValue(0);
+        hueSlider.setMaximum(128);
+        hueSlider.setMinimum(-128);
+        satSlider.setMaximum(128);
+        satSlider.setMinimum(-128);
+        valueSlider.setMaximum(128);
+        valueSlider.setMinimum(-128);
         hueSpinner.setValue(hueSlider.getValue());
         satSpinner.setValue(satSlider.getValue());
         valueSpinner.setValue(valueSlider.getValue());
@@ -105,6 +114,10 @@ public class ColorMain extends JFrame {
 
         processButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                int hOffset, sOffset, vOffset;
+                hOffset = hueSlider.getValue();
+                sOffset = satSlider.getValue();
+                vOffset = valueSlider.getValue();
                 debug = debugOutputCheckBox.isSelected();
                 RepColors col = new RepColors(debugUtil);
                 col.debug = debug;
@@ -140,7 +153,7 @@ public class ColorMain extends JFrame {
                         //Insert the files or create the dump
                         for (ImageItem imageItem : images) {
                             debugUtil.debug("Processing image " + imageItem.vt_tracking, debug);
-                            LinkedList<ColorCount> colors = col.processImage(imageItem);
+                            LinkedList<ColorCount> colors = col.processImage(imageItem, hOffset, sOffset, vOffset);
                             if (debug) {
                                 String colorString = "\t";
                                 int i = 0;
@@ -163,7 +176,7 @@ public class ColorMain extends JFrame {
                 else {
                     for (ImageItem imageItem : images) {
                         debugUtil.debug("Processing image " + imageItem.vt_tracking, debug);
-                        LinkedList<ColorCount> colors = col.processImage(imageItem);
+                        LinkedList<ColorCount> colors = col.processImage(imageItem, hOffset, sOffset, vOffset);
                         if (debug) {
                             String colorString = "\t";
                             int i = 0;

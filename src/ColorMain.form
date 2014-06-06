@@ -225,7 +225,7 @@
                   <minorTickSpacing value="5"/>
                   <paintLabels value="false"/>
                   <paintTicks value="false"/>
-                  <value value="100"/>
+                  <value value="128"/>
                   <valueIsAdjusting value="false"/>
                 </properties>
               </component>
@@ -235,7 +235,7 @@
                 </constraints>
                 <properties>
                   <maximum value="255"/>
-                  <value value="100"/>
+                  <value value="128"/>
                 </properties>
               </component>
               <component id="84c37" class="javax.swing.JSlider" binding="valueSlider">
@@ -244,7 +244,7 @@
                 </constraints>
                 <properties>
                   <maximum value="255"/>
-                  <value value="100"/>
+                  <value value="128"/>
                 </properties>
               </component>
               <component id="698b7" class="javax.swing.JSpinner" binding="hueSpinner">
